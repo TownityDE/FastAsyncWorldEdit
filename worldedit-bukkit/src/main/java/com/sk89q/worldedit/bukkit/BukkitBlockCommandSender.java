@@ -37,6 +37,7 @@ import org.bukkit.command.BlockCommandSender;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -191,18 +192,14 @@ public class BukkitBlockCommandSender extends AbstractCommandBlockActor {
 
             @Override
             public boolean isActive() {
-                if (Bukkit.isPrimaryThread()) {
+                Block block = sender.getBlock();
+                if (Bukkit.getRegionScheduler().isCurrentThread(block.getLocation())) {
                     // we can update eagerly
                     updateActive();
                 } else {
                     // we should update it eventually
-                    Bukkit.getScheduler().callSyncMethod(
-                            plugin,
-                            () -> {
-                                updateActive();
-                                return null;
-                            }
-                    );
+                    CompletableFuture<?> future = Bukkit.getGlobalRegionScheduler().execute(plugin, block.getLocation(), () -> updateActive());
+                    // CompletableFuture result ignored; task scheduled for later execution
                 }
                 return active;
             }
